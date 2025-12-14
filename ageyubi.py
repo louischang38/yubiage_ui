@@ -6,6 +6,7 @@ import time
 import ctypes
 import configparser
 
+# ⚠️ Cross-platform theme detection library (install: pip install darkdetect)
 import darkdetect 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -18,7 +19,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDropEvent, QColor, QFont, QIcon, QPalette, QAction
 
 # ==========================================
-# Windows API (imported and used only on Windows)
+# ⚙️ Windows API (Import and use only on Windows)
 # ==========================================
 if os.name == 'nt':
     def bring_pid_to_front(pid):
@@ -45,12 +46,12 @@ if os.name == 'nt':
             print(f"Fail to bring window to top: {e}")
 else:
     def bring_pid_to_front(pid):
-        # No operation is performed on non-Windows platforms.
+        # Non-Windows platform: no operation
         pass
 
 
 # ==========================================
-# Colors & Styling
+# 🎨 Colors & Styling
 # ==========================================
 LIGHT_THEME_COLORS = {
     "TEXT_PRIMARY": "#333333", "TEXT_SECONDARY": "#888888", "BACKGROUND": "#F7F7F7",
@@ -124,7 +125,7 @@ def get_base_stylesheet(colors):
     """
 
 # ==========================================
-# AgeWorker
+# ⚡️ AgeWorker
 # ==========================================
 class AgeWorker(QThread):
     finished = Signal(int, int, bool)
@@ -135,7 +136,7 @@ class AgeWorker(QThread):
         super().__init__(parent)
         self.mode = mode
         self.files_to_process = files_to_process
-        self.recipients_keys = recipients_keys
+        self.recipients_keys = recipients_keys # In this context, it is the temporary working key (public or private)
         self._process = None
 
     def run(self):
@@ -164,13 +165,13 @@ class AgeWorker(QThread):
                     if not self.recipients_keys:
                         raise ValueError("No recipients.")
 
-                    # Create a temporary file to transmit the recipient's public key
+                    # Create a temporary file to pass recipient public keys
                     temp_recipients_file = os.path.join(os.path.dirname(input_path) or os.getcwd(), f".temp_recipients_{os.getpid()}.txt")
                     with open(temp_recipients_file, 'w') as f:
                         for key_path in self.recipients_keys:
                             if not os.path.exists(key_path): continue
                             with open(key_path, 'r', encoding='utf-8') as key_f:
-                                # Read the content, skip comment lines, and write to a temporary file.
+                                # Read content, skip comment lines, and write to temp file
                                 content = "".join([line for line in key_f if not line.strip().startswith('#')]).strip()
                                 if content: f.write(content + '\n')
                     
@@ -182,20 +183,20 @@ class AgeWorker(QThread):
 
                 else: # decrypt
                     cmd.append("-d")
-                    # Remove the .age suffix or add .decrypted
+                    # Remove .age suffix or add .decrypted
                     output_path = input_path.removesuffix(".age") if input_path.lower().endswith(".age") else f"{input_path}.decrypted"
                     cmd.extend(["-o", output_path])
 
                     if not self.recipients_keys:
                         raise ValueError("No identity.")
 
-                    # Decrypt using the identity key
+                    # Use identity key for decryption
                     for key_path in self.recipients_keys:
                         cmd.extend(["-i", key_path])
 
                     cmd.append(input_path)
                 
-                # --- Execute the age command ---
+                # --- Execute age command ---
                 self._process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
@@ -203,18 +204,18 @@ class AgeWorker(QThread):
                     creationflags=creation_flags
                 )
 
-                # Try bringing the password hint window to the foreground (Windows only)
+                # Attempt to bring the password prompt window to the foreground (Windows only)
                 time.sleep(0.5)
                 bring_pid_to_front(self._process.pid)
 
-                # Wait for the process to complete and retrieve the output
+                # Wait for the process to complete and get output
                 stdout_output, stderr_output = self._process.communicate()
                 return_code = self._process.returncode
 
                 if return_code == 0:
                     success_count += 1
                 else:
-                    # Report the specific error information output by the `age` command line
+                    # Report the specific error message from age CLI output
                     error_msg = stderr_output.decode('utf-8', errors='ignore').strip()
                     detail_msg = error_msg if error_msg else f"Failed, exit code: {return_code}"
                     raise Exception(detail_msg)
@@ -224,7 +225,7 @@ class AgeWorker(QThread):
             finally:
                 progress = (i + 1) / total_files
                 self.progress_update.emit(progress)
-                # Clean temporary files
+                # Clean up temporary file
                 if temp_recipients_file and os.path.exists(temp_recipients_file):
                     try: os.remove(temp_recipients_file)
                     except: pass 
@@ -233,7 +234,7 @@ class AgeWorker(QThread):
 
 
 # ==========================================
-# Widget: Drop Target
+# 🖼️ Widget: Drop Target
 # ==========================================
 class SingleDropTarget(QFrame):
     files_dropped = Signal(list)
@@ -243,11 +244,11 @@ class SingleDropTarget(QFrame):
         super().__init__(parent)
         self.main_window = main_window
         self.colors = colors
-        self.strings = strings
+        self.strings = strings # Receive string constants
         self.setAcceptDrops(True)
         self.mode = "file" # "file", "key", "finished", "error"
 
-        # Apply styles during initialization
+        # Apply style upon initialization
         self._apply_style()
         self.setMinimumSize(320, 180)
 
@@ -258,7 +259,7 @@ class SingleDropTarget(QFrame):
         self.label.setFont(QFont("Arial", 12))
         self.layout.addWidget(self.label)
 
-      
+        # Shadow effect
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(20)
         shadow_color = QColor(0, 0, 0, 50) if self.colors == LIGHT_THEME_COLORS else QColor(0, 0, 0, 80)
@@ -323,14 +324,14 @@ class SingleDropTarget(QFrame):
     def dropEvent(self, event: QDropEvent):
         mime = event.mimeData()
         if mime.hasUrls():
-            # Filter out non-existent paths
+            # Filter out paths that do not exist
             paths = [u.toLocalFile() for u in mime.urls() if u.isLocalFile() and os.path.exists(u.toLocalFile())]
 
             if not paths:
                 event.ignore()
                 return
 
-            # If the current status is complete/error, reset first.
+            # If current state is finished/error, reset first
             if self.mode in ["finished", "error"]:
                 self.main_window._reset_state_ui(clear_keys=False)
 
@@ -344,7 +345,7 @@ class SingleDropTarget(QFrame):
 
 
 # ==========================================
-#  Main Window: AgeGUI
+# 💻 Main Window: AgeGUI
 # ==========================================
 class AgeGUI(QMainWindow):
     SETTINGS_FILE = "settings.ini"
@@ -352,9 +353,8 @@ class AgeGUI(QMainWindow):
     # Centralized management of all string constants
     STRINGS = {
         "STR_TITLE": "YubiAge GUI",
-        "STR_MENU_EXIT": "Exit",
         "STR_MSGBOX_TITLE": "Message",
-        "STR_STATUS_READY": "Ready. Keys: %s.",
+        "STR_STATUS_READY": "Ready. Pub Keys: %s.",
         "STR_STATUS_LOADED_KEYS": "Loaded %d keys.",
         "STR_STATUS_ENCRYPT_MODE": "Encrypt Mode",
         "STR_STATUS_DECRYPT_MODE": "Decrypt Mode",
@@ -363,8 +363,9 @@ class AgeGUI(QMainWindow):
         "STR_STATUS_ERROR_MIXED": "Terminated.",
         "STR_STATUS_ERROR_KEY_LOAD": "Key load failed.",
         "STR_STATUS_ERROR_FILE_KEY_MISSING": "File/Key missing.",
-        "STR_BTN_CLEAR": "Clear",
-        "STR_ERROR_MIXED_FILES": "Do not mix files.",
+        "STR_BTN_CLEAR": "Clear State",
+        "STR_BTN_CLEAR_KEYS": "Clear Keys", 
+        "STR_ERROR_MIXED_FILES": "Do not mix file and Key.",
         "STR_ERROR_INVALID_KEY_PATH": "Invalid key path.",
         "STR_ERROR_AGE_WORKER": "Age Worker Error: %s",
         "STR_ERROR_FILES_FAIL": "Failed! %d files failed.",
@@ -380,17 +381,18 @@ class AgeGUI(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # 1. Topic initialization (use only a single detection, remove real-time monitoring)
+        # 1. Theme initialization (using single detection, removed real-time listener)
         self.is_dark_mode = darkdetect.isDark()
         self.colors = DARK_THEME_COLORS if self.is_dark_mode else LIGHT_THEME_COLORS
         self.strings = self.STRINGS
 
         self.setWindowTitle(self.strings["STR_TITLE"])
-        self.resize(450, 320)
-        self.setMinimumSize(450, 320)
+        # Set fixed window size to prevent resizing
+        self.setFixedSize(450, 320)
 
-        # state variables
-        self.keys = []
+        # State variables
+        self.keys = []                  # Temporary key list for current operation (public or private key)
+        self.recipients_keys = []       # List for persistent public keys (only for encryption)
         self.files_to_process = []
         self.current_action_mode = None
         self._key_pending = False
@@ -404,7 +406,7 @@ class AgeGUI(QMainWindow):
         self._load_key_settings()
 
     def _set_qmessagebox_style(self):
-       
+        """Configures the style of QMessageBox to match the current theme."""
         text_color = self.colors["TEXT_PRIMARY"]
         bg_color = self.colors["CARD_BG"]
         btn_bg = self.colors["CARD_BG"]
@@ -434,19 +436,16 @@ class AgeGUI(QMainWindow):
         app.setStyleSheet(new_style)
 
     def _get_settings_path(self):
-        # Specify the file path (supports PyInstaller packaging).
+        # Determine settings file path (supports PyInstaller packaging)
         if getattr(sys, 'frozen', False):
             return os.path.join(os.path.dirname(sys.executable), self.SETTINGS_FILE)
         else:
             return os.path.join(os.path.dirname(os.path.abspath(__file__)), self.SETTINGS_FILE)
 
     def _init_ui(self):
+        # Removed the Exit menu action as requested
         menu_bar = QMenuBar()
         self.setMenuBar(menu_bar)
-
-        exit_action = QAction(self.strings["STR_MENU_EXIT"], self)
-        exit_action.triggered.connect(QApplication.quit)
-        menu_bar.addAction(exit_action)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -454,7 +453,7 @@ class AgeGUI(QMainWindow):
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
 
-        # Drag and drop target area
+        # Drop target area
         self.drop_target = SingleDropTarget(
             main_window=self, 
             colors=self.colors, 
@@ -474,15 +473,15 @@ class AgeGUI(QMainWindow):
         self.status_label.setStyleSheet(f"color: {self.colors['TEXT_SECONDARY']};")
         footer_layout.addWidget(self.status_label, 1)
         
-        # === clear key button ===
-        self.btn_clear_keys = QPushButton("Clear Keys", objectName="ClearKeysBtn")
+        # === Clear Keys Button ===
+        self.btn_clear_keys = QPushButton(self.strings["STR_BTN_CLEAR_KEYS"], objectName="ClearKeysBtn")
         self.btn_clear_keys.clicked.connect(self._clear_keys_action)
         self.btn_clear_keys.setFixedSize(100, 28)
         footer_layout.addWidget(self.btn_clear_keys)
         # =============================
 
         self.btn_clear = QPushButton(self.strings["STR_BTN_CLEAR"], objectName="ClearBtn")
-        # This button only clears the file and state, not the persistent key.
+        # This button only clears files and state, not persistent keys
         self.btn_clear.clicked.connect(lambda: self._reset_state_ui(clear_keys=False))
         self.btn_clear.setFixedSize(90, 28)
         footer_layout.addWidget(self.btn_clear)
@@ -490,10 +489,11 @@ class AgeGUI(QMainWindow):
         self.main_layout.addLayout(footer_layout)
 
     def _reset_state_ui(self, clear_keys=False):
-        """Reset UI and files/state。"""
+        """Resets the UI and file/state."""
         self.files_to_process = []
         self._key_pending = False
         self.current_action_mode = None
+        self.keys = [] # Clear the temporary key list for the current operation
         self.progress.setValue(0)
         self.drop_target.setDisabled(False)
         self.btn_clear.setDisabled(False)
@@ -502,22 +502,26 @@ class AgeGUI(QMainWindow):
         self.drop_target.set_mode("file")
 
         if clear_keys:
-            self.keys = []
+            self.recipients_keys = [] # Clear the persistent public key list
 
-        key_status = str(len(self.keys))
+        # Get the count from the persistent public key list to display status
+        key_status = str(len(self.recipients_keys))
         self.status_label.setText(self.strings["STR_STATUS_READY"] % key_status)
 
     def _clear_keys_action(self):
-        """Clear the loaded public key/identity key and update the persistence settings。"""
-        # Clear persistent storage in the key list and settings file.
+        """Clears the loaded public/identity keys and updates persistent settings."""
+        # Clear persistent public key list self.recipients_keys
+        self.recipients_keys = []
+        self._save_key_settings([], False) # Clear persistent storage in settings.ini
+
+        # Clear the current temporary working list
         self.keys = []
-        self._save_key_settings([], False) # Setting the second parameter to False indicates that the key will not be remembered.
 
-        # If currently in a key-waiting state, reset to drag-and-drop file mode.
+        # If currently waiting for a key, reset to file drop mode
         if self._key_pending:
-            self._reset_state_ui(clear_keys=False) # State reset, but keys do not need to be cleared again.
+            self._reset_state_ui(clear_keys=False) 
 
-        # Regardless of the current state, update the status label to show 0 keys.
+        # Update the status label to show 0 keys, regardless of the current state
         self.status_label.setText(self.strings["STR_STATUS_READY"] % "0")
 
 
@@ -527,12 +531,12 @@ class AgeGUI(QMainWindow):
 
         if is_remembered:
             key_paths_str = settings.value("Keys/Paths", "")
-            # Filter out non-existent paths
+            # Filter out paths that do not exist
             key_paths = [p for p in key_paths_str.split(';') if os.path.exists(p) and p]
 
             if key_paths:
-                self.keys = key_paths
-                self.status_label.setText(self.strings["STR_STATUS_LOADED_KEYS"] % len(self.keys))
+                self.recipients_keys = key_paths # <-- Load to the persistent public key list
+                self.status_label.setText(self.strings["STR_STATUS_LOADED_KEYS"] % len(self.recipients_keys))
 
     def _save_key_settings(self, keys_to_save: list, remember: bool):
         settings = QSettings(self._get_settings_path(), QSettings.IniFormat)
@@ -560,21 +564,26 @@ class AgeGUI(QMainWindow):
             self.drop_target.setDisabled(False)
             return
 
+        # Clear the temporary keys from the previous operation
+        self.keys = [] 
+
         if is_all_age:
-            # Decryption mode
+            # Decrypt mode
             self.current_action_mode = "decrypt"
-            self.keys = [] # Decryption requires a identity key.
             self._key_pending = True
             self.drop_target.set_mode("key", self.strings["STR_DROP_KEY_PRIVATE"])
             self.status_label.setText(self.strings["STR_STATUS_DECRYPT_MODE"])
         else:
-            # encryption mode
+            # Encrypt mode
             self.current_action_mode = "encrypt"
-            if not self.keys:
+            if not self.recipients_keys: # <-- Check the persistent public key list
                 self._key_pending = True
                 self.drop_target.set_mode("key", self.strings["STR_DROP_KEY_PUBLIC"])
                 self.status_label.setText(self.strings["STR_STATUS_ENCRYPT_MODE"])
             else:
+                # Use remembered public keys
+                self.keys = list(self.recipients_keys) # <-- Copy public keys to the temporary working list
+                self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'encrypt'}")
                 self._start_process()
 
     def _on_keys_dropped_in_key_mode(self, paths):
@@ -592,11 +601,12 @@ class AgeGUI(QMainWindow):
         self._key_pending = False
 
         if self.current_action_mode == "encrypt":
-            # The encryption key (recipient) is saved as a remembered key.
-            self._save_key_settings(self.keys, True)
-            self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'encrypt'}")
+            # Encryption key (recipient) updates the persistent list and saves
+            self.recipients_keys = valid_key_paths # <-- Update persistent list
+            self._save_key_settings(self.recipients_keys, True)
+            self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.recipients_keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'encrypt'}")
         elif self.current_action_mode == "decrypt":
-            # Decryption key (identity)
+            # Decryption key (identity) - used only temporarily in self.keys
             self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'decrypt'}")
 
         self._start_process()
@@ -604,7 +614,7 @@ class AgeGUI(QMainWindow):
     def _start_process(self):
         if not self.files_to_process or not self.keys:
             self.drop_target.set_mode("error", self.strings["STR_STATUS_ERROR_FILE_KEY_MISSING"])
-            self._reset_state_ui(clear_keys=True)
+            self._reset_state_ui(clear_keys=False) # Do not clear persistent public keys
             return
 
         self.drop_target.setDisabled(True)
@@ -613,13 +623,13 @@ class AgeGUI(QMainWindow):
 
         mode_text = 'encrypt' if self.current_action_mode == 'encrypt' else 'decrypt'
         self.status_label.setText(self.strings["STR_STATUS_START_PROCESS"] % mode_text)
-        self.progress.setRange(0, 0) 
+        self.progress.setRange(0, 0) # Indeterminate progress bar
 
         self.worker = AgeWorker(self.current_action_mode, self.files_to_process, self.keys)
         self.worker.finished.connect(self._on_finished)
 
         def report_error(file_name, error_msg):
-            # Format the error report for easier user reading.
+            # Format error report for user readability
             formatted_error = self.strings["STR_ERROR_AGE_WORKER"] % error_msg
             QMessageBox.critical(self, self.strings["STR_MSGBOX_TITLE"], f"File: {file_name}\n\n{formatted_error}")
             
@@ -640,20 +650,26 @@ class AgeGUI(QMainWindow):
         if success == total:
             if self.current_action_mode == 'encrypt':
                 mode_text_display = self.strings["STR_MODE_ENCRYPT_DISPLAY"]
+                key_count = len(self.recipients_keys) # Display persistent public key count
             else:
                 mode_text_display = self.strings["STR_MODE_DECRYPT_DISPLAY"]
+                key_count = 0 # Temporary key is cleared after decryption
 
             self.drop_target.set_mode("finished", mode_text_display)
-            self.status_label.setText(self.strings["STR_STATUS_FINISHED_KEYS"] % len(self.keys))
+            self.status_label.setText(self.strings["STR_STATUS_FINISHED_KEYS"] % key_count)
         else:
             error_count = total - success
             self.drop_target.set_mode("error", self.strings["STR_ERROR_FILES_FAIL"] % error_count)
-            # Report the number of errors, but keep the key count status.
+            # Report error count, but maintain public key status
             self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
 
-        # The decryption key is deleted after decryption (simplified processing, does not affect the persistence of the encryption key).
+        # Decryption key is cleared after decryption, but now only clears the temporary working list self.keys,
+        # without affecting the persistent self.recipients_keys
         if self.current_action_mode == "decrypt":
             self.keys = []
+        
+        # Ensure status bar shows the correct public key count
+        self._reset_state_ui(clear_keys=False)
 
 
 if __name__ == "__main__":
