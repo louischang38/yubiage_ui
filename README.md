@@ -36,6 +36,7 @@ Optional (Hardware / Secure Element Support):
 age-plugin-yubikey
 https://github.com/str4d/age-plugin-yubikey
 
+Option:
 age-plugin-se (macOS Secure Enclave)
 https://github.com/remko/age-plugin-se
 
@@ -121,11 +122,9 @@ Windows / macOS / Linux
 
 age
 https://github.com/FiloSottile/age
-
-選用（硬體金鑰 / Secure Enclave）：
-
 age-plugin-yubikey
 
+選用（硬體金鑰 / Secure Enclave）：
 age-plugin-se（macOS）
 
 安裝與執行
