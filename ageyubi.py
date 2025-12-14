@@ -1,3 +1,10 @@
+# v0.1.1
+# - Fixed an issue where the decoded public key memory cache was unintentionally cleared, causing subsequent verification failures.
+
+# v0.1.0
+# -  Initial Release
+
+
 import sys
 import os
 import subprocess
