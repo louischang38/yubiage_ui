@@ -1,0 +1,10 @@
+# yubiage_ui Release Notes
+
+## v0.1.1
+### 🐛 Bug Fixes
+- Fixed an issue where the decoded public key memory cache was unintentionally cleared, causing subsequent verification failures.
+- Fixed issues related to incorrect folder handling logic.
+
+## v0.1.0
+### 🎉 Initial Release
+- Initial release of yubiage_ui.
