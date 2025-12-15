@@ -26,7 +26,28 @@ This application simplifies the drag-and-drop workflow, especially for users man
 - **Cross-Platform**  
   Windows / macOS / Linux
 
+
+## Decryption Design Limitation
+
+Due to the behavior of the `age` CLI and YubiKey-based decryption mechanisms, each decryption operation requires an independent verification and authorization step.
+
+Specifically:
+
+- The `age` command-line tool prompts for confirmation or key access on every decryption request.
+- YubiKey-backed identities require a physical user presence (touch / PIN / confirmation) for each operation.
+
+To avoid unintended CLI behavior, authorization confusion, or user interaction errors during batch processing, the decryption feature is intentionally designed to operate on **a single file at a time**.
+
+This design ensures:
+
+- Clear and predictable authorization flow
+- Reduced risk of accidental or failed decryption operations
+- Better alignment with the security model of hardware-backed keys
+
+As a result, bulk decryption is intentionally not supported.
 ---
+
+
 
 ## Prerequisites
 
@@ -117,7 +138,32 @@ YubiAge GUI 是一個基於 PySide6 的簡潔、跨平台圖形使用者介面�
 - **跨平台支援**  
   Windows / macOS / Linux
 
+
+## 解密功能設計限制說明
+
+由於 `age` 指令列工具與 YubiKey 硬體金鑰在進行解密時，
+**每一次解密操作都需要獨立的驗證與授權流程**（例如 PIN 輸入、實體觸碰或使用者確認），
+因此本工具在解密功能的設計上，**僅支援單一檔案解密**。
+
+主要考量如下：
+
+- `age` CLI 每次解密皆會觸發獨立的金鑰存取與驗證
+- YubiKey 解密操作必須逐次進行實體授權
+- 批次解密容易造成 CLI 操作混亂或授權錯誤
+
+為避免因批次操作導致誤解密、授權失敗或不可預期的行為，
+解密流程刻意限制為 **一次僅處理一個檔案**。
+
+此設計可確保：
+
+- 驗證流程清楚可控
+- 降低操作失誤與安全風險
+- 符合硬體金鑰的安全模型
+
+因此，本工具**暫時不支援批次解密功能**。
 ---
+
+
 
 ## 系統需求
 
