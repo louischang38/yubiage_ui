@@ -1,195 +1,180 @@
-YubiAge GUI
-Age File Encryption / Decryption with YubiKey GUI Tool
 
-A simple, cross-platform Graphical User Interface (GUI) built with PySide6 for handling file encryption and decryption using the Age encryption tool.
+# YubiAge GUI
+
+**Age File Encryption / Decryption with YubiKey GUI Tool**
+
+A simple, cross-platform Graphical User Interface (GUI) built with PySide6 for handling file encryption and decryption using the Age encryption tool.  
 
 This application simplifies the drag-and-drop workflow, especially for users managing keys from YubiKey devices or standard Age key files.
 
-FEATURES
+---
 
-Drag-and-Drop Interface
-Encrypt or decrypt files by dragging them into the main window.
+## Features
 
-Automatic Mode Detection
-Automatically detects Encrypt / Decrypt mode based on the dropped file type.
+- **Drag-and-Drop Interface**  
+  Encrypt or decrypt files by dragging them into the main window.
 
-Key Management
-Supports dropping recipient public keys (for encryption) or identity private keys (for decryption).
+- **Automatic Mode Detection**  
+  Automatically detects Encrypt / Decrypt mode based on the dropped file type.
 
-Key Persistence (Encryption)
-Remembers the last used recipient keys during encryption sessions.
+- **Key Management**  
+  Supports dropping recipient public keys (for encryption) or identity private keys (for decryption).
 
-Cross-Platform
-Windows / macOS / Linux
+- **Key Persistence (Encryption)**  
+  Remembers the last used recipient keys during encryption sessions.
 
-PREREQUISITES
+- **Cross-Platform**  
+  Windows / macOS / Linux
 
-The following command-line tools must be installed and available in your system PATH.
+---
 
-Required:
+## Prerequisites
 
-age (Age Encryption Tool)
-https://github.com/FiloSottile/age
+The following command-line tools must be installed and available in your system `PATH`.
 
-Optional (Hardware / Secure Element Support):
+**Required:**
 
-age-plugin-yubikey
-https://github.com/str4d/age-plugin-yubikey
+- [age (Age Encryption Tool)](https://github.com/FiloSottile/age)
+- [age-plugin-yubikey](https://github.com/str4d/age-plugin-yubikey)  
 
-Option:
-age-plugin-se (macOS Secure Enclave)
-https://github.com/remko/age-plugin-se
+**Optional (Hardware / Secure Element Support):**
+- [age-plugin-se (macOS Secure Enclave)](https://github.com/remko/age-plugin-se)
 
-INSTALLATION AND USAGE
+---
 
-Option 1: Running the Application (Executable)
-Recommended for end users.
+## Installation and Usage
 
-Download the latest compiled executable from the Releases page
+### Option 1: Running the Application (Executable)  
+*Recommended for end users.*
 
-Windows: .exe
+1. Download the latest compiled executable from the Releases page:  
+   - Windows: `.exe`  
+   - macOS / Linux: binary
 
-macOS / Linux: binary
+2. Run the application directly. No Python installation required.
 
-Run the application directly
-No Python installation required.
+### Option 2: Running from Source (Python Script)  
+*For developers or advanced users.*
 
-Option 2: Running from Source (Python Script)
-For developers or advanced users.
+1. Download the main script:  
+   `ageyub_ui.py`
 
-Download the main script
-ageyub_ui.py
-
-Install dependencies
+2. Install dependencies:
 pip install PySide6
 pip install darkdetect
 
-Run the application
+3. Run the application:
 python ageyub_ui.py
 
-Alternatively, you can build the executable yourself with PyInstaller.
+4. Alternatively, you can build the executable yourself with PyInstaller:
 
-windows:
-python -m PyInstaller  --onefile --windowed --name "yubiage_ui" --icon "icon.ico" --add-data "icon.ico;." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+**Windows:**
+python -m PyInstaller --onefile --windowed --name "yubiage_ui" --icon "icon.ico" --add-data "icon.ico;." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
 
+**macOS:**
+python -m PyInstaller --onefile --console --windowed --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
 
-osx:
-python -m PyInstaller --onefile  --console --windowed --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+---
 
+## How to Use
 
+### Encryption
+1. Drag one or more **non-.age files** into the main window. The application switches to **Key Mode** automatically.  
+2. Drag the recipient **public key** (starts with `age`) into the window.  
+3. Each file is encrypted and saved with a `.age` extension.
 
+### Decryption
+1. Drag one or more **.age files** into the main window. The application switches to **Key Mode** automatically.  
+2. Drag the **identity private key** into the window.  
+3. Files are decrypted and the `.age` extension is removed.
 
+---
 
-HOW TO USE
+# 中文說明
 
-Encryption:
+## YubiAge GUI（Age 檔案加解密工具）
 
-Drag one or more files (non-.age files) into the main window.
+YubiAge GUI 是一個基於 PySide6 的簡潔、跨平台圖形使用者介面（GUI），用於透過 Age 加密工具進行檔案加密與解密。  
 
-The application switches to Key Mode.
+本工具以拖放操作為核心設計，特別適合使用 **YubiKey 硬體金鑰** 或標準 Age 金鑰檔案的使用者。
 
-Drag the recipient public key (starts with "age") into the window.
+---
 
-Each file is encrypted and saved with a .age extension.
+## 專案特色
 
-Decryption:
+- **拖放介面**  
+  將檔案拖放至主視窗即可完成加解密
 
-Drag one or more .age files into the main window.
+- **模式自動判斷**  
+  依據檔案類型自動切換加密或解密模式
 
-The application switches to Key Mode.
+- **金鑰管理**  
+  支援拖放收件人公鑰（加密）與身份私鑰（解密）
 
-Drag the identity private key into the window.
+- **金鑰記憶功能（加密）**  
+  自動記住上次使用的收件人金鑰
 
-Files are decrypted and the .age extension is removed.
+- **跨平台支援**  
+  Windows / macOS / Linux
 
-YubiAge GUI（Age 檔案加解密工具）
+---
 
-YubiAge GUI 是一個基於 PySide6 的簡潔、跨平台圖形使用者介面（GUI），
-用於透過 Age 加密工具進行檔案加密與解密。
-
-本工具以拖放操作為核心設計，特別適合使用 YubiKey 硬體金鑰
-或標準 Age 金鑰檔案的使用者。
-
-專案特色
-
-拖放介面
-將檔案拖放至主視窗即可完成加解密
-
-模式自動判斷
-依據檔案類型自動切換加密或解密模式
-
-金鑰管理
-支援拖放收件人公鑰（加密）與身份私鑰（解密）
-
-金鑰記憶功能（加密）
-自動記住上次使用的收件人金鑰
-
-跨平台支援
-Windows / macOS / Linux
-
-系統需求
+## 系統需求
 
 系統中必須安裝以下命令列工具，並可於 PATH 中存取：
 
-必要：
+**必要：**
 
-age
-https://github.com/FiloSottile/age
-age-plugin-yubikey
+- age  
+  [GitHub](https://github.com/FiloSottile/age)
+- age-plugin-yubikey  
 
-選用（硬體金鑰 / Secure Enclave）：
-age-plugin-se（macOS）
+**選用（硬體金鑰 / Secure Enclave）：**
+- age-plugin-se（macOS）
 
-安裝與執行
+---
 
-選項一：使用編譯後的執行檔（推薦）
+## 安裝與執行
 
-從 Releases 頁面下載最新版本
+### 選項一：使用編譯後的執行檔（推薦）
+1. 從 Releases 頁面下載最新版本  
+2. 直接執行即可使用（無需 Python 安裝）
 
-直接執行即可使用
+### 選項二：從原始碼執行（Python）
+1. 下載主程式  
+   `ageyub_ui.py`
 
-選項二：從原始碼執行（Python）
-
-下載主程式
-ageyub_ui.py
-
-安裝依賴
+2. 安裝依賴
 pip install PySide6
 pip install darkdetect
 
-執行
+3. 執行
 python ageyub_ui.py
 
-或使用pyinstaller自行編譯執行檔
+4. 或使用 PyInstaller 自行編譯執行檔
 
-windows:
-python -m PyInstaller  --onefile --windowed --name "yubiage_ui" --icon "icon.ico" --add-data "icon.ico;." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+**Windows:**
+python -m PyInstaller --onefile --windowed --name "yubiage_ui" --icon "icon.ico" --add-data "icon.ico;." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
 
-osx:
-python -m PyInstaller --onefile  --console --windowed --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+**macOS:**
+python -m PyInstaller --onefile --console --windowed --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
 
+---
 
+## 使用方式
 
+### 加密
+1. 拖放一個或多個 **非 .age 檔案** 至主視窗  
+   程式自動切換至 **金鑰模式**
 
+2. 拖放收件人 **公鑰**（age 開頭）  
 
-使用方式
+3. 產生對應的 `.age` 加密檔案
 
-加密：
+### 解密
+1. 拖放一個或多個 **.age 檔案**  
+   程式自動切換至 **金鑰模式**
 
-拖放一個或多個非 .age 檔案至主視窗
+2. 拖放 **身份私鑰**  
 
-程式自動切換至金鑰模式
-
-拖放收件人公鑰（age 開頭）
-
-產生對應的 .age 加密檔案
-
-解密：
-
-拖放一個或多個 .age 檔案
-
-程式自動切換至金鑰模式
-
-拖放身份私鑰
-
-解密完成並移除 .age 副檔名
+3. 解密完成並移除 `.age` 副檔名
