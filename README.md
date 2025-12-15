@@ -1,5 +1,5 @@
 
-# YubiAge GUI
+# YubiAge UI
 
 **Age File Encryption / Decryption with YubiKey GUI Tool**
 
@@ -78,14 +78,14 @@ The following command-line tools must be installed and available in your system 
 *For developers or advanced users.*
 
 1. Download the main script:  
-   `ageyub_ui.py`
+   `yubiage_ui.py`
 
 2. Install dependencies:
 pip install PySide6
 pip install darkdetect
 
 3. Run the application:
-python ageyub_ui.py
+python yubiage_ui.py
 
 4. Alternatively, you can build the executable yourself with PyInstaller:
 
@@ -107,7 +107,7 @@ python -m PyInstaller --onefile --console --windowed --name "yubiage_ui" --icon 
 ### Decryption
 1. Drag one or more **.age files** into the main window. The application switches to **Key Mode** automatically.  
 2. Drag the **identity private key** into the window.  
-3. Files are decrypted and the `.age` extension is removed.
+3. Files are decrypted
 
 ---
 
@@ -188,14 +188,14 @@ YubiAge GUI 是一個基於 PySide6 的簡潔、跨平台圖形使用者介面�
 
 ### 選項二：從原始碼執行（Python）
 1. 下載主程式  
-   `ageyub_ui.py`
+   `yubiage_ui.py`
 
 2. 安裝依賴
 pip install PySide6
 pip install darkdetect
 
 3. 執行
-python ageyub_ui.py
+python yubiage_ui.py
 
 4. 或使用 PyInstaller 自行編譯執行檔
 
@@ -223,4 +223,4 @@ python -m PyInstaller --onefile --console --windowed --name "yubiage_ui" --icon 
 
 2. 拖放 **身份私鑰**  
 
-3. 解密完成並移除 `.age` 副檔名
+3. 解密完成
