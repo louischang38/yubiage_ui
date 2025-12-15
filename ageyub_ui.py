@@ -269,7 +269,7 @@ class AgeWorker(QThread):
                             
                             if os.path.isdir(original_source_path):
                                 # Directory encryption: Rename temp_archive.tar.gz.age -> folder.Dir.age
-                                final_output_path = f"{original_source_path}.dir.age" # ⚠️ Updated to .Dir.age
+                                final_output_path = f"{original_source_path}.Dir.age" 
                                 
                                 # Rename operation
                                 if os.path.exists(temp_output_path):
@@ -282,7 +282,6 @@ class AgeWorker(QThread):
                             # we rename the output (e.g., folder.temp_decrypted_12345) to folder.tar.gz
                             
                             # Heuristic: Check if the original encrypted file suggests it was a directory archive
-                            # (i.e., if it ends with .Dir.age)
                             if input_path.lower().endswith(".dir.age"):
                                 # If it was a directory archive, add .tar.gz back to the base name
                                 final_output_path = f"{output_path_base}.tar.gz"
@@ -422,6 +421,7 @@ class SingleDropTarget(QFrame):
                 return
 
             if self.mode in ["finished", "error"]:
+                # If finished/error, start a new process by resetting the UI state 
                 self.main_window._reset_state_ui(clear_keys=False)
 
             if self.mode == "file" or self.mode in ["finished", "error"]:
@@ -453,16 +453,17 @@ class AgeGUI(QMainWindow):
         "STR_STATUS_ERROR_FILE_KEY_MISSING": "File/Key missing.",
         "STR_BTN_CLEAR": "Clear State",
         "STR_BTN_CLEAR_KEYS": "Clear Keys", 
-        "STR_ERROR_MIXED_FILES": "Do not mix .age files  \n \n with other files or folders.",
+        "STR_CONFIRM_CLEAR_KEYS": "Are you sure you want to clear ALL saved public recipient key paths? They must be dropped again for future encryption.",
+        "STR_ERROR_MIXED_FILES": "Do not mix .age file and directory/other file.",
         "STR_ERROR_INVALID_KEY_PATH": "Invalid key path.",
         "STR_ERROR_AGE_WORKER": "Age Worker Error: %s",
         "STR_ERROR_FILES_FAIL": "Failed! %d files failed.",
         "STR_MODE_ENCRYPT_DISPLAY": "Encryption",
         "STR_MODE_DECRYPT_DISPLAY": "Decryption",
-        "STR_DROP_FILE_INITIAL": "Drop files, folders, or \n \n encrypted .age files here",
+        "STR_DROP_FILE_INITIAL": "Drop Files (or Folders for Encrypt) Here",
         "STR_DROP_KEY_PUBLIC": "Recipient key needed",
         "STR_DROP_KEY_PRIVATE": "Identity key needed",
-        "STR_DROP_FINISHED": "Finished %s",
+        "STR_DROP_FINISHED": "Finished %s \n \n Drop Files (or Folders for Encrypt) Here",
         "STR_DROP_ERROR": "Failed: %s",
     }
 
@@ -589,16 +590,37 @@ class AgeGUI(QMainWindow):
         self.status_label.setText(self.strings["STR_STATUS_READY"] % key_status)
 
     def _clear_keys_action(self):
-        """Clears the loaded public/identity keys and updates persistent settings."""
-        self.recipients_keys = []
-        self._save_key_settings([], False) 
+        """
+        Clears the loaded public/identity keys and updates persistent settings, 
+        with a confirmation dialog.
+        """
+        if not self.recipients_keys:
+            # If no keys are loaded, just clear the UI state if needed and return.
+            self.status_label.setText(self.strings["STR_STATUS_READY"] % "0")
+            return
 
-        self.keys = []
+        # Confirmation Dialog
+        reply = QMessageBox.question(
+            self, 
+            self.strings["STR_BTN_CLEAR_KEYS"], # Dialog Title
+            self.strings["STR_CONFIRM_CLEAR_KEYS"], # Dialog Text
+            QMessageBox.Yes | QMessageBox.No, 
+            QMessageBox.No # Default button is No
+        )
 
-        if self._key_pending:
-            self._reset_state_ui(clear_keys=False) 
+        if reply == QMessageBox.Yes:
+            self.recipients_keys = []
+            self._save_key_settings([], False) 
 
-        self.status_label.setText(self.strings["STR_STATUS_READY"] % "0")
+            self.keys = []
+
+            if self._key_pending:
+                self._reset_state_ui(clear_keys=False) 
+
+            self.status_label.setText(self.strings["STR_STATUS_READY"] % "0")
+        else:
+            # User clicked No, do nothing
+            pass
 
 
     def _load_key_settings(self):
@@ -721,9 +743,13 @@ class AgeGUI(QMainWindow):
         self.btn_clear_keys.setDisabled(False)
 
         if total == 0:
+            # Pre-process error (e.g., tar failed)
             self.drop_target.set_mode("error", self.strings["STR_STATUS_ERROR_MIXED"])
             self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
+            self._reset_state_ui(clear_keys=False) # Error: Reset immediately
+            
         elif success == total:
+            # Success
             if self.current_action_mode == 'encrypt':
                 mode_text_display = self.strings["STR_MODE_ENCRYPT_DISPLAY"]
                 key_count = len(self.recipients_keys) 
@@ -731,17 +757,21 @@ class AgeGUI(QMainWindow):
                 mode_text_display = self.strings["STR_MODE_DECRYPT_DISPLAY"]
                 key_count = 0 
 
+            # Show success message and status, DO NOT reset state immediately
             self.drop_target.set_mode("finished", mode_text_display)
             self.status_label.setText(self.strings["STR_STATUS_FINISHED_KEYS"] % key_count)
+            
+            # If decrypting, keys are temporary for the operation, we can clear them.
+            if self.current_action_mode == "decrypt":
+                self.files_to_process = []
+                self.keys = []
+            
         else:
+            # Partial or total failure of age process
             error_count = total - success
             self.drop_target.set_mode("error", self.strings["STR_ERROR_FILES_FAIL"] % error_count)
             self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
-
-        if self.current_action_mode == "decrypt":
-            self.keys = []
-        
-        self._reset_state_ui(clear_keys=False)
+            self._reset_state_ui(clear_keys=False) # Failure: Reset immediately
 
 
 if __name__ == "__main__":
