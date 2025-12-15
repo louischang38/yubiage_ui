@@ -5,9 +5,9 @@ import threading
 import time
 import ctypes
 import configparser
-import tarfile 
+import re 
 
-# ⚠️ Cross-platform theme detection library (install: pip install darkdetect)
+# Cross-platform theme detection library (install: pip install darkdetect)
 import darkdetect 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -20,11 +20,10 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDropEvent, QColor, QFont, QIcon
 
 # ==========================================
-# ⚙️ Windows API (Import and use only on Windows)
+# Windows API (Import and use only on Windows)
 # ==========================================
 if os.name == 'nt':
     def bring_pid_to_front(pid):
-        """Finds the window corresponding to the PID and forces it to the foreground (Windows only)."""
         try:
             user32 = ctypes.windll.user32
             WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
@@ -47,7 +46,6 @@ if os.name == 'nt':
             print(f"Fail to bring window to top: {e}")
 else:
     def bring_pid_to_front(pid):
-        # Non-Windows platform: no operation
         pass
 
 
@@ -57,7 +55,7 @@ else:
 LIGHT_THEME_COLORS = {
     "TEXT_PRIMARY": "#333333", "TEXT_SECONDARY": "#888888", "BACKGROUND": "#F7F7F7",
     "CARD_BG": "#FFFFFF", "BORDER": "#E0E0E0", "DANGER": "#D92D20", "DANGER_BG": "#FFF3F2",
-    "ENCRYPT_ACCENT": "#D9534F", "ENCRYPT_BG": "#FFF8F8", "DECRYPT_ACCENT": "#5CB85C",
+    "ENCRYPT_ACCENT": "#D9534F", "ENCRYPT_BG": "#FFF8FF", "DECRYPT_ACCENT": "#5CB85C",
     "DECRYPT_BG": "#F8FFF8", "ACCENT": "#1070F0", "SUCCESS_ACCENT": "#12B76A",
     "SUCCESS_BG": "#F6FEF9",
 }
@@ -90,7 +88,7 @@ def get_base_stylesheet(colors):
         
         /* Clear Keys Button */
         QPushButton#ClearKeysBtn {{
-            color: {colors["TEXT_PRIMARY"]};
+            color: {colors["TEXT_SECONDARY"]}; 
             background-color: {colors["CARD_BG"]};
             border: 1px solid {colors["BORDER"]};
         }}
@@ -101,7 +99,7 @@ def get_base_stylesheet(colors):
         
         /* Clear File/State Button */
         QPushButton#ClearBtn {{
-            color: {colors["TEXT_SECONDARY"]};
+            color: {colors["TEXT_PRIMARY"]}; 
             background-color: {colors["CARD_BG"]};
             border: 1px solid {colors["BORDER"]};
         }}
@@ -126,7 +124,7 @@ def get_base_stylesheet(colors):
     """
 
 # ==========================================
-# ⚡️ AgeWorker
+#  AgeWorker
 # ==========================================
 class AgeWorker(QThread):
     finished = Signal(int, int, bool)
@@ -139,84 +137,67 @@ class AgeWorker(QThread):
         self.files_to_process = files_to_process
         self.recipients_keys = recipients_keys 
         self._process = None
-        self.temp_files_to_cleanup = [] # Records temporary files that need cleanup
 
-    def _create_tar_archive(self, dir_path):
+    def _find_unique_filename(self, path):
         """
-        Creates a temporary gzipped tar archive (.tar.gz) for a directory.
-        Returns the path to the temporary .tar.gz file.
+        Find a unique filename by appending (n) to the extension to avoid conflicts.
         """
-        dir_name = os.path.basename(dir_path)
-        tar_path = os.path.join(os.path.dirname(dir_path) or os.getcwd(), f"{dir_name}_temp_{os.getpid()}.tar.gz")
+        if not os.path.exists(path):
+            return path
+
+        directory = os.path.dirname(path)
+        filename = os.path.basename(path)
         
-        try:
-            with tarfile.open(tar_path, 'w:gz') as tar:
-                # Adds the directory content, using the directory name as the archive root
-                tar.add(dir_path, arcname=dir_name) 
+        name, ext = os.path.splitext(filename)
+        match = re.search(r' \((\d+)\)$', name)
+        
+        if match:
+            base_name_without_suffix = name[:match.start()]
+            start_num = int(match.group(1)) + 1
+        else:
+            base_name_without_suffix = name
+            start_num = 1
+        
+        while True:
+            new_name = f"{base_name_without_suffix} ({start_num}){ext}"
+            new_path = os.path.join(directory, new_name)
             
-            self.temp_files_to_cleanup.append(tar_path) 
-            return tar_path
-        except Exception as e:
-            raise IOError(f"Failed to create TAR archive for {dir_name}: {e}")
+            if not os.path.exists(new_path):
+                return new_path
+            
+            start_num += 1
 
     def run(self):
         success_count = 0
-        original_files_to_process = self.files_to_process[:]
-        
-        # Maps the actual input file path for age to its original path
-        # Format: {input_path_for_age: original_path}
-        file_map = {} 
-        processed_files = [] 
-        total_files = 0 
+        processed_files = self.files_to_process[:]
+        total_files = len(processed_files) 
         needs_clear = self.mode == "encrypt"
 
         try:
-            # === Pre-processing: Directory Archiving (Only for Encryption) ===
-            if self.mode == "encrypt":
-                for original_path in original_files_to_process:
-                    if os.path.isdir(original_path):
-                        # Archive directory into .tar.gz
-                        self.progress_update.emit(0.01)
-                        tar_file_path = self._create_tar_archive(original_path) 
-                        
-                        processed_files.append(tar_file_path)
-                        file_map[tar_file_path] = original_path # Map: Temp file -> Original directory
-                    else:
-                        processed_files.append(original_path)
-                        file_map[original_path] = original_path # Map: Original file -> Original file
-            else:
-                processed_files = original_files_to_process
-                for p in processed_files:
-                    file_map[p] = p 
-
-            total_files = len(processed_files)
-
-            # === Age Encryption/Decryption Operation ===
             creation_flags = 0
             if os.name == 'nt':
                 creation_flags = subprocess.CREATE_NEW_CONSOLE
 
             for i, input_path in enumerate(processed_files):
                 current_file_name = os.path.basename(input_path)
-                original_source_path = file_map[input_path] 
                 temp_recipients_file = None
                 temp_output_path = None
                 temp_decrypt_path = None
+                output_path_base = ""
 
                 try:
                     cmd = ["age"]
                     
                     # --- Build command ---
                     if self.mode == "encrypt":
-                        # 1. Age's output path uses the temporary file name
                         temp_output_path = f"{input_path}.age" 
+                            
                         cmd.append("-a")
                         cmd.extend(["-o", temp_output_path])
 
                         if not self.recipients_keys:
                             raise ValueError("No recipients.")
 
-                        # Create temporary file for recipient keys
                         temp_recipients_file = os.path.join(os.path.dirname(input_path) or os.getcwd(), f".temp_recipients_{os.getpid()}.txt")
                         with open(temp_recipients_file, 'w') as f:
                             for key_path in self.recipients_keys:
@@ -233,10 +214,8 @@ class AgeWorker(QThread):
 
                     else: # decrypt
                         cmd.append("-d")
-                        # Base output path without .age (e.g., folder.age -> folder)
                         output_path_base = input_path.removesuffix(".age") if input_path.lower().endswith(".age") else f"{input_path}.decrypted"
                         
-                        # Use a temporary output path for age to simplify post-process renaming
                         temp_decrypt_path = f"{output_path_base}.temp_decrypted_{os.getpid()}"
                         
                         cmd.extend(["-o", temp_decrypt_path])
@@ -266,33 +245,26 @@ class AgeWorker(QThread):
                     if return_code == 0:
                         # === 2. Post-process (Rename/Cleanup) ===
                         if self.mode == "encrypt":
-                            
-                            if os.path.isdir(original_source_path):
-                                # Directory encryption: Rename temp_archive.tar.gz.age -> folder.Dir.age
-                                final_output_path = f"{original_source_path}.Dir.age" 
-                                
-                                # Rename operation
-                                if os.path.exists(temp_output_path):
-                                    os.makedirs(os.path.dirname(final_output_path) or '.', exist_ok=True)
-                                    os.rename(temp_output_path, final_output_path)
-                            # Single file encryption: No rename needed (already file.txt.age)
+                            pass
                             
                         else: # decrypt mode
-                            # Decryption: If the original file was a simplified dir archive (e.g., folder.Dir.age)
-                            # we rename the output (e.g., folder.temp_decrypted_12345) to folder.tar.gz
                             
-                            # Heuristic: Check if the original encrypted file suggests it was a directory archive
-                            if input_path.lower().endswith(".dir.age"):
-                                # If it was a directory archive, add .tar.gz back to the base name
-                                final_output_path = f"{output_path_base}.tar.gz"
+                            # === File conflict detected (automatically append numeric suffix) ===
+                            if input_path.lower().endswith(".age"):
                                 
                                 if os.path.exists(temp_decrypt_path):
+                                    
+                                    expected_output_path = output_path_base 
+                                    final_output_path = self._find_unique_filename(expected_output_path)
+                                        
                                     os.rename(temp_decrypt_path, final_output_path)
+
+                                else:
+                                    raise IOError(f"Age returned success, but output file not found: {temp_decrypt_path}")
                             
                         success_count += 1
                         
                     else:
-                        # Report the specific error message from age CLI output
                         error_msg = stderr_output.decode('utf-8', errors='ignore').strip()
                         detail_msg = error_msg if error_msg else f"Failed, exit code: {return_code}"
                         raise Exception(detail_msg)
@@ -302,21 +274,17 @@ class AgeWorker(QThread):
                 finally:
                     progress = (i + 1) / total_files
                     self.progress_update.emit(progress)
-                    # Clean up temporary recipients file
+                    
                     if temp_recipients_file and os.path.exists(temp_recipients_file):
                         try: os.remove(temp_recipients_file)
                         except: pass 
-                    # Clean up temporary decrypted file if the age process failed before renaming
+                        
                     if self.mode == "decrypt" and temp_decrypt_path and os.path.exists(temp_decrypt_path):
-                        try: os.remove(temp_decrypt_path)
-                        except: pass
+                        try: 
+                            os.remove(temp_decrypt_path)
+                        except: 
+                            pass
 
-            # === 3. Cleanup: Remove temporary .tar.gz files ===
-            for temp_file in self.temp_files_to_cleanup:
-                try: 
-                    os.remove(temp_file)
-                except Exception as e:
-                    print(f"Cleanup failed for {temp_file}: {e}")
 
         except Exception as e:
             self.error.emit("Pre-process", f"Pre-process Error: {e}")
@@ -345,8 +313,8 @@ class SingleDropTarget(QFrame):
 
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignCenter)
-
-        self.label = QLabel(self.strings["STR_DROP_FILE_INITIAL"], objectName="DropText", alignment=Qt.AlignCenter)
+     
+        self.label = QLabel(self.strings["STR_DROP_FILE_ENCRYPT"], objectName="DropText", alignment=Qt.AlignCenter)
         self.label.setFont(QFont("Arial", 12))
         self.layout.addWidget(self.label)
 
@@ -364,56 +332,58 @@ class SingleDropTarget(QFrame):
                 border-radius: 10px;
                 background-color: {self.colors["CARD_BG"]};
                 padding: 20px;
-                {style_override}
             }}
             QLabel#DropText {{
                 border: none; background-color: transparent; color: {self.colors["TEXT_SECONDARY"]};
                 font-weight: 500;
             }}
-        """)
-
-    def set_mode(self, mode_type, action_text=""):
-        self.mode = mode_type
-        style = ""
-        text_style = ""
-
-        if mode_type == "file":
-            self.label.setText(self.strings["STR_DROP_FILE_INITIAL"])
-            style = f"border: 2px dashed {self.colors['BORDER']}; background-color: {self.colors['CARD_BG']};"
-            text_style = f"color: {self.colors['TEXT_SECONDARY']}; font-weight: 500;"
-
-        elif mode_type == "key":
-            is_public_key = action_text == self.strings["STR_DROP_KEY_PUBLIC"]
-            color = self.colors['ENCRYPT_ACCENT'] if is_public_key else self.colors['DECRYPT_ACCENT']
-            bg_color = self.colors['ENCRYPT_BG'] if is_public_key else self.colors['DECRYPT_BG']
-            self.label.setText(action_text)
-            style = f"border: 2px dashed {color}; background-color: {bg_color};"
-            text_style = f"color: {self.colors['TEXT_PRIMARY']}; font-weight: 600;"
-
-        elif mode_type == "finished":
-            style = f"border: 2px dashed {self.colors['SUCCESS_ACCENT']}; background-color: {self.colors['SUCCESS_BG']};"
-            text_style = f"color: {self.colors['SUCCESS_ACCENT']}; font-weight: 700;"
-            self.label.setText(self.strings["STR_DROP_FINISHED"] % action_text)
-
-        elif mode_type == "error":
-            style = f"border: 2px dashed {self.colors['DANGER']}; background-color: {self.colors['DANGER_BG']};"
-            text_style = f"color: {self.colors['TEXT_PRIMARY']}; font-weight: 700;"
-            self.label.setText(self.strings["STR_DROP_ERROR"] % action_text)
-
-        self.setStyleSheet(f"""
-            QFrame {{ {style} border-radius: 10px; padding: 20px; }}
-            QLabel#DropText {{
-                border: none; background-color: transparent; {text_style}
-            }}
+            {style_override}
         """)
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls(): event.acceptProposedAction()
-        else: event.ignore()
+        if event.mimeData().hasUrls(): 
+            event.acceptProposedAction()
+        else: 
+            event.ignore()
+
+    def set_mode(self, mode, message=None):
+        """Sets the drop target mode and updates the message."""
+        self.mode = mode
+        
+        style_override = ""
+        new_text = ""
+        text_color = self.colors["TEXT_SECONDARY"]
+
+        if mode == "file":
+          
+            if self.main_window.current_action_mode == "decrypt":
+                new_text = self.strings["STR_DROP_FILE_DECRYPT"]
+            else:
+                new_text = self.strings["STR_DROP_FILE_ENCRYPT"]
+        elif mode == "key":
+            new_text = message if message else self.strings["STR_DROP_KEY_PUBLIC"] 
+        elif mode == "finished":
+            accent = self.colors["SUCCESS_ACCENT"]
+            bg = self.colors["SUCCESS_BG"]
+            new_text = self.strings["STR_DROP_FINISHED"] % message
+            style_override = f"border: 2px solid {accent}; background-color: {bg};"
+            text_color = accent
+        elif mode == "error":
+            accent = self.colors["DANGER"]
+            bg = self.colors["DANGER_BG"]
+            new_text = self.strings["STR_DROP_ERROR"] % message
+            style_override = f"border: 2px solid {accent}; background-color: {bg};"
+            text_color = accent
+        
+        self._apply_style(style_override)
+        self.label.setText(new_text)
+        self.label.setStyleSheet(f"color: {text_color}; font-weight: 500;")
+
 
     def dropEvent(self, event: QDropEvent):
         mime = event.mimeData()
         if mime.hasUrls():
+        
             paths = [u.toLocalFile() for u in mime.urls() if u.isLocalFile() and os.path.exists(u.toLocalFile())]
 
             if not paths:
@@ -421,14 +391,14 @@ class SingleDropTarget(QFrame):
                 return
 
             if self.mode in ["finished", "error"]:
-                # If finished/error, start a new process by resetting the UI state 
                 self.main_window._reset_state_ui(clear_keys=False)
 
-            if self.mode == "file" or self.mode in ["finished", "error"]:
+            if self.mode == "file":
+             
                 self.files_dropped.emit(paths)
             elif self.mode == "key":
                 self.keys_dropped.emit(paths)
-
+                
             event.acceptProposedAction()
         else: event.ignore()
 
@@ -440,7 +410,7 @@ class AgeGUI(QMainWindow):
     SETTINGS_FILE = "settings.ini"
 
     STRINGS = {
-        "STR_TITLE": "YubiAge UI",
+        "STR_TITLE": "YubiAge UI v0.1.1",
         "STR_MSGBOX_TITLE": "Message",
         "STR_STATUS_READY": "Ready. Pub Keys: %s.",
         "STR_STATUS_LOADED_KEYS": "Loaded %d keys.",
@@ -454,16 +424,18 @@ class AgeGUI(QMainWindow):
         "STR_BTN_CLEAR": "Clear State",
         "STR_BTN_CLEAR_KEYS": "Clear Keys", 
         "STR_CONFIRM_CLEAR_KEYS": "Are you sure you want to clear ALL saved public recipient key paths? They must be dropped again for future encryption.",
-        "STR_ERROR_MIXED_FILES": "Do not mix .age file and directory/other file.",
+        "STR_ERROR_MIXED_FILES": "Do not mix .age file and non-.age file.",
         "STR_ERROR_INVALID_KEY_PATH": "Invalid key path.",
         "STR_ERROR_AGE_WORKER": "Age Worker Error: %s",
         "STR_ERROR_FILES_FAIL": "Failed! %d files failed.",
+        "STR_ERROR_DECRYPT_MULTI": "One file at a time (no folders)", 
         "STR_MODE_ENCRYPT_DISPLAY": "Encryption",
         "STR_MODE_DECRYPT_DISPLAY": "Decryption",
-        "STR_DROP_FILE_INITIAL": "Drop Files (or Folders for Encrypt) Here",
-        "STR_DROP_KEY_PUBLIC": "Recipient key needed",
-        "STR_DROP_KEY_PRIVATE": "Identity key needed",
-        "STR_DROP_FINISHED": "Finished %s \n \n Drop Files (or Folders for Encrypt) Here",
+        "STR_DROP_FILE_ENCRYPT": "Drop Files or Folders for Encryption", 
+        "STR_DROP_FILE_DECRYPT": "Drop ONE .age File for Decryption", 
+        "STR_DROP_KEY_PUBLIC": "Recipient key needed! \n \n ( Drag and drop one or more public keys ) \n \n",
+        "STR_DROP_KEY_PRIVATE": "Identity key needed! \n \n ( Drag and drop one private key ) \n \n ",
+        "STR_DROP_FINISHED": "Finished %s",
         "STR_DROP_ERROR": "Failed: %s",
     }
 
@@ -477,14 +449,13 @@ class AgeGUI(QMainWindow):
 
         self.setWindowTitle(self.strings["STR_TITLE"])
         
-        # Fixed window size
         self.setFixedSize(450, 320)
 
         # State variables
         self.keys = []                  
         self.recipients_keys = []       
         self.files_to_process = []
-        self.current_action_mode = None
+        self.current_action_mode = None 
         self._key_pending = False
         self.worker = None
 
@@ -496,7 +467,7 @@ class AgeGUI(QMainWindow):
         self._load_key_settings()
 
     def _set_qmessagebox_style(self):
-        """Configures the style of QMessageBox to match the current theme."""
+      
         text_color = self.colors["TEXT_PRIMARY"]
         bg_color = self.colors["CARD_BG"]
         btn_bg = self.colors["CARD_BG"]
@@ -526,7 +497,6 @@ class AgeGUI(QMainWindow):
         app.setStyleSheet(new_style)
 
     def _get_settings_path(self):
-        # Determine settings file path 
         if getattr(sys, 'frozen', False):
             return os.path.join(os.path.dirname(sys.executable), self.SETTINGS_FILE)
         else:
@@ -553,16 +523,17 @@ class AgeGUI(QMainWindow):
         self.main_layout.addWidget(self.progress)
 
         footer_layout = QHBoxLayout()
-        self.status_label = QLabel(self.strings["STR_STATUS_READY"] % "0", alignment=Qt.AlignVCenter)
-        self.status_label.setFont(QFont("Arial", 10))
-        self.status_label.setStyleSheet(f"color: {self.colors['TEXT_SECONDARY']};")
-        footer_layout.addWidget(self.status_label, 1)
         
         self.btn_clear_keys = QPushButton(self.strings["STR_BTN_CLEAR_KEYS"], objectName="ClearKeysBtn")
         self.btn_clear_keys.clicked.connect(self._clear_keys_action)
         self.btn_clear_keys.setFixedSize(100, 28)
-        footer_layout.addWidget(self.btn_clear_keys)
+        footer_layout.addWidget(self.btn_clear_keys) 
 
+        self.status_label = QLabel(self.strings["STR_STATUS_READY"] % "0", alignment=Qt.AlignVCenter)
+        self.status_label.setFont(QFont("Arial", 10))
+        self.status_label.setStyleSheet(f"color: {self.colors['TEXT_SECONDARY']};")
+        footer_layout.addWidget(self.status_label, 1) 
+        
         self.btn_clear = QPushButton(self.strings["STR_BTN_CLEAR"], objectName="ClearBtn")
         self.btn_clear.clicked.connect(lambda: self._reset_state_ui(clear_keys=False))
         self.btn_clear.setFixedSize(90, 28)
@@ -581,7 +552,8 @@ class AgeGUI(QMainWindow):
         self.btn_clear.setDisabled(False)
         self.btn_clear_keys.setDisabled(False)
 
-        self.drop_target.set_mode("file")
+        # After resetting, DropTarget will prompt you using the default encryption mode.
+        self.drop_target.set_mode("file") 
 
         if clear_keys:
             self.recipients_keys = [] 
@@ -590,22 +562,16 @@ class AgeGUI(QMainWindow):
         self.status_label.setText(self.strings["STR_STATUS_READY"] % key_status)
 
     def _clear_keys_action(self):
-        """
-        Clears the loaded public/identity keys and updates persistent settings, 
-        with a confirmation dialog.
-        """
         if not self.recipients_keys:
-            # If no keys are loaded, just clear the UI state if needed and return.
             self.status_label.setText(self.strings["STR_STATUS_READY"] % "0")
             return
 
-        # Confirmation Dialog
         reply = QMessageBox.question(
             self, 
-            self.strings["STR_BTN_CLEAR_KEYS"], # Dialog Title
-            self.strings["STR_CONFIRM_CLEAR_KEYS"], # Dialog Text
+            self.strings["STR_BTN_CLEAR_KEYS"], 
+            self.strings["STR_CONFIRM_CLEAR_KEYS"], 
             QMessageBox.Yes | QMessageBox.No, 
-            QMessageBox.No # Default button is No
+            QMessageBox.No 
         )
 
         if reply == QMessageBox.Yes:
@@ -618,10 +584,6 @@ class AgeGUI(QMainWindow):
                 self._reset_state_ui(clear_keys=False) 
 
             self.status_label.setText(self.strings["STR_STATUS_READY"] % "0")
-        else:
-            # User clicked No, do nothing
-            pass
-
 
     def _load_key_settings(self):
         settings = QSettings(self._get_settings_path(), QSettings.IniFormat)
@@ -645,49 +607,98 @@ class AgeGUI(QMainWindow):
             settings.setValue("Keys/Paths", "")
 
         settings.sync()
+        
+    def _get_files_recursive(self, paths):
+        """
+        Recursively traverse the path and collect all files.
+        """
+        file_list = []
+        for path in paths:
+            if os.path.basename(path).startswith('.'):
+                continue
+                
+            if os.path.isfile(path):
+                file_list.append(path)
+            elif os.path.isdir(path):
+                for root, _, files in os.walk(path):
+                    for file_name in files:
+                        if not file_name.startswith('.'):
+                            file_list.append(os.path.join(root, file_name))
+        return file_list
 
     def _on_files_dropped(self, paths):
+        """
+        Handles drag-and-drop files/folders.
+        paths: Contains a list of top-level paths (files or folders) dragged in by the user.
+        """
         if self._key_pending: return
 
-        has_dirs = any(os.path.isdir(p) for p in paths)
+        # 1. Preliminary pattern assessment (prioritize determining if it's for decryption)
         has_age_files = any(p.lower().endswith(".age") for p in paths)
+        is_decrypt_mode = has_age_files or all(os.path.isfile(p) and p.lower().endswith(".age") for p in paths)
         
-        # 1. Error check: Do not mix .age files with directories or other files
-        if (has_dirs and has_age_files) or (has_age_files and any(not p.lower().endswith(".age") and not os.path.isdir(p) for p in paths)):
-             self.drop_target.set_mode("error", self.strings["STR_ERROR_MIXED_FILES"])
-             self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
-             return
-        
-        # Determine mode
-        if has_age_files:
+        # 2. **Decryption Mode Restriction Check (YubiKey Security Restriction)**
+        if is_decrypt_mode:
+            # Only a single file can be dragged in; folders and multiple files are not allowed.
+            if len(paths) > 1 or os.path.isdir(paths[0]):
+                self.drop_target.set_mode("error", self.strings["STR_ERROR_DECRYPT_MULTI"])
+                self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
+                return
+            
+            # Make sure the single file you drag in is a .age file.
+            if not paths[0].lower().endswith(".age") or not os.path.isfile(paths[0]):
+                self.drop_target.set_mode("error", "The file must be a single .age file.")
+                self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
+                return
+
+            self.files_to_process = paths
             self.current_action_mode = "decrypt"
+            
         else:
+            # 3. Encryption mode (batch processing allowed)
+            collected_files = self._get_files_recursive(paths)
+            
+            if not collected_files:
+                self.drop_target.set_mode("error", "No valid files found for encryption.")
+                self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
+                return
+            
+            # Check for the presence of .age files
+            if any(p.lower().endswith(".age") for p in collected_files):
+                self.drop_target.set_mode("error", self.strings["STR_ERROR_MIXED_FILES"])
+                self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
+                return
+
+            self.files_to_process = collected_files
             self.current_action_mode = "encrypt"
 
-        self.files_to_process = paths
-        self.keys = [] 
 
+        # 4. Proceed to the next step according to the pattern.
+        total_files = len(self.files_to_process)
+        
         if self.current_action_mode == "decrypt":
-            # Decrypt Mode
+            # Decrypt Mode: File check complete, next step requires key.
             self._key_pending = True
-            self.drop_target.set_mode("key", self.strings["STR_DROP_KEY_PRIVATE"])
+            # Users will need to pay attention to the CLI interface (where YubiKey prompts will appear).
+            self.drop_target.set_mode("key", f"{self.strings['STR_DROP_KEY_PRIVATE']} After drop: Check console window")
             self.status_label.setText(self.strings["STR_STATUS_DECRYPT_MODE"])
         else:
-            # Encrypt Mode (including directories and files)
+            # Encrypt Mode
             if not self.recipients_keys: 
+                # Require public key
                 self._key_pending = True
-                self.drop_target.set_mode("key", self.strings["STR_DROP_KEY_PUBLIC"])
+                self.drop_target.set_mode("key", f"{self.strings['STR_DROP_KEY_PUBLIC']} ({total_files} files)")
                 self.status_label.setText(self.strings["STR_STATUS_ENCRYPT_MODE"])
             else:
-                # Use remembered public keys
+                # Start directly using the stored public key.
                 self.keys = list(self.recipients_keys)
-                self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'encrypt'}")
+                self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'encrypt'} ({total_files} files)")
                 self._start_process()
 
     def _on_keys_dropped_in_key_mode(self, paths):
         if not self._key_pending: return
 
-        valid_key_paths = [p for p in paths if os.path.exists(p)]
+        valid_key_paths = [p for p in paths if os.path.exists(p) and os.path.isfile(p)] 
 
         if not valid_key_paths:
             self.drop_target.set_mode("error", self.strings["STR_ERROR_INVALID_KEY_PATH"])
@@ -701,9 +712,10 @@ class AgeGUI(QMainWindow):
         if self.current_action_mode == "encrypt":
             self.recipients_keys = valid_key_paths 
             self._save_key_settings(self.recipients_keys, True)
-            self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.recipients_keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'encrypt'}")
+            total_files = len(self.files_to_process)
+            self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.recipients_keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'encrypt'} ({total_files} files)")
         elif self.current_action_mode == "decrypt":
-            self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'decrypt'}")
+            self.status_label.setText(f"{self.strings['STR_STATUS_LOADED_KEYS'] % len(self.keys)} {self.strings['STR_STATUS_START_PROCESS'] % 'decrypt'} (1 file)")
 
         self._start_process()
 
@@ -743,13 +755,11 @@ class AgeGUI(QMainWindow):
         self.btn_clear_keys.setDisabled(False)
 
         if total == 0:
-            # Pre-process error (e.g., tar failed)
             self.drop_target.set_mode("error", self.strings["STR_STATUS_ERROR_MIXED"])
             self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
-            self._reset_state_ui(clear_keys=False) # Error: Reset immediately
+            self._reset_state_ui(clear_keys=False) 
             
         elif success == total:
-            # Success
             if self.current_action_mode == 'encrypt':
                 mode_text_display = self.strings["STR_MODE_ENCRYPT_DISPLAY"]
                 key_count = len(self.recipients_keys) 
@@ -757,26 +767,22 @@ class AgeGUI(QMainWindow):
                 mode_text_display = self.strings["STR_MODE_DECRYPT_DISPLAY"]
                 key_count = 0 
 
-            # Show success message and status, DO NOT reset state immediately
             self.drop_target.set_mode("finished", mode_text_display)
             self.status_label.setText(self.strings["STR_STATUS_FINISHED_KEYS"] % key_count)
             
-            # If decrypting, keys are temporary for the operation, we can clear them.
             if self.current_action_mode == "decrypt":
                 self.files_to_process = []
                 self.keys = []
             
         else:
-            # Partial or total failure of age process
             error_count = total - success
             self.drop_target.set_mode("error", self.strings["STR_ERROR_FILES_FAIL"] % error_count)
             self.status_label.setText(self.strings["STR_STATUS_ERROR_MIXED"])
-            self._reset_state_ui(clear_keys=False) # Failure: Reset immediately
+            self._reset_state_ui(clear_keys=False) 
 
 
 if __name__ == "__main__":
     if os.name == 'nt':
-        # Disable the default age prompt on Windows for better UI integration
         os.environ["AGE_DISABLE_PTE"] = "1" 
 
     try:
