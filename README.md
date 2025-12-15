@@ -58,14 +58,27 @@ Option 2: Running from Source (Python Script)
 For developers or advanced users.
 
 Download the main script
-ageyubi.py
+ageyub_ui.py
 
 Install dependencies
 pip install PySide6
 pip install darkdetect
 
 Run the application
-python ageyubi.py
+python ageyub_ui.py
+
+Alternatively, you can build the executable yourself with PyInstaller.
+
+windows:
+python -m PyInstaller  --onefile --windowed --name "yubiage_ui" --icon "icon.ico" --add-data "icon.ico;." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+
+
+osx:
+python -m PyInstaller --onefile  --console --windowed --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+
+
+
+
 
 HOW TO USE
 
@@ -138,14 +151,26 @@ age-plugin-se（macOS）
 選項二：從原始碼執行（Python）
 
 下載主程式
-ageyubi.py
+ageyub_ui.py
 
 安裝依賴
 pip install PySide6
 pip install darkdetect
 
 執行
-python ageyubi.py
+python ageyub_ui.py
+
+或使用pyinstaller自行編譯執行檔
+
+windows:
+python -m PyInstaller  --onefile --windowed --name "yubiage_ui" --icon "icon.ico" --add-data "icon.ico;." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+
+osx:
+python -m PyInstaller --onefile  --console --windowed --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+
+
+
+
 
 使用方式
 
