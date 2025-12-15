@@ -93,7 +93,7 @@ python yubiage_ui.py
 python -m PyInstaller --onefile --windowed --name "yubiage_ui" --icon "icon.ico" --add-data "icon.ico;." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
 
 **macOS:**
-python -m PyInstaller --onedir --console --windowed --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+python -m PyInstaller --onedir --console --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
 
 ---
 
@@ -203,7 +203,7 @@ python yubiage_ui.py
 python -m PyInstaller --onefile --windowed --name "yubiage_ui" --icon "icon.ico" --add-data "icon.ico;." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
 
 **macOS:**
-python -m PyInstaller --onedir --console --windowed --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
+python -m PyInstaller --onedir --console --name "yubiage_ui" --icon "icon.icns" --add-data "icon.icns:." --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets --exclude-module PySide6.QtWebEngine --exclude-module PySide6.QtNetwork --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtSql --exclude-module PySide6.QtTest --clean yubiage_ui.py
 
 ---
 
